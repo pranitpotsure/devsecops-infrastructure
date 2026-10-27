@@ -1,0 +1,154 @@
+services:
+
+  # ==========================================================================
+  # Bagisto Application
+  # ==========================================================================
+
+  bagisto:
+    image: bagisto-app:2.4.7
+    container_name: bagisto
+
+    restart: unless-stopped
+
+    ports:
+      - "8082:80"
+
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_DATABASE: bagisto
+      DB_USERNAME: bagisto
+      DB_PASSWORD: bagisto
+
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: null
+
+      APP_URL: http://localhost:8082
+      APP_KEY: "base64:Vg4p9wRwwP7edHg9BMnaZKSt85761Uk6PVF92uJkvKo="
+
+    networks:
+      - bagisto-network
+
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+
+  # ==========================================================================
+  # MySQL
+  # ==========================================================================
+
+  mysql:
+    image: mysql:8.0
+    container_name: bagisto-mysql
+
+    restart: unless-stopped
+
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: bagisto
+      MYSQL_USER: bagisto
+      MYSQL_PASSWORD: bagisto
+
+    volumes:
+      - bagisto-mysql-data:/var/lib/mysql
+
+    networks:
+      - bagisto-network
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "localhost",
+          "-uroot",
+          "-prootpassword"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+
+  # ==========================================================================
+  # Redis
+  # ==========================================================================
+
+  redis:
+    image: redis:7-alpine
+    container_name: bagisto-redis
+
+    restart: unless-stopped
+
+    volumes:
+      - bagisto-redis-data:/data
+
+    networks:
+      - bagisto-network
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "redis-cli",
+          "ping"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ==========================================================================
+  # Next.js Storefront
+  # ==========================================================================
+
+  nextjs:
+    image: bagisto-nextjs:local-test
+    container_name: bagisto-nextjs
+    restart: unless-stopped
+
+    ports:
+      - "3001:3000"
+
+    environment:
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      PORT: 3000
+
+      BAGISTO_INTERNAL_URL: http://bagisto
+      BAGISTO_STOREFRONT_KEY: ${BAGISTO_STOREFRONT_KEY:?Set BAGISTO_STOREFRONT_KEY}
+      NEXTAUTH_URL: http://localhost:3001
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?Set NEXTAUTH_SECRET}
+
+    networks:
+      - bagisto-network
+
+ 
+# ==============================================================================
+# Network
+# ==============================================================================
+
+networks:
+
+  bagisto-network:
+    external: true
+
+
+# ==============================================================================
+# Persistent volumes
+# ==============================================================================
+
+volumes:
+
+  bagisto-mysql-data:
+    external: true
+
+  bagisto-redis-data:
+    external: true
+    

@@ -1,0 +1,17 @@
+terraform {
+  # Require a Terraform release that supports this configuration.
+  required_version = ">= 1.6.0"
+
+  # Declare the providers used by the infrastructure modules.
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 6.0"
+    }
+
+    tls = {
+      source  = "hashicorp/tls"
+      version = "~> 4.0"
+    }
+  }
+}
