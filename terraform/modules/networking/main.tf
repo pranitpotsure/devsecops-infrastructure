@@ -149,3 +149,118 @@ resource "aws_route_table_association" "private" {
   subnet_id      = aws_subnet.private[count.index].id
   route_table_id = aws_route_table.private[count.index].id
 }
+
+# Read the AWS region selected by the root provider.
+data "aws_region" "current" {}
+
+# Allow private resources to connect to AWS interface endpoints over HTTPS.
+resource "aws_security_group" "vpc_endpoints" {
+  name        = "${var.name}-vpc-endpoints"
+  description = "HTTPS access to private AWS service endpoints"
+  vpc_id      = aws_vpc.this.id
+
+  ingress {
+    description = "HTTPS from within the project VPC"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = [var.vpc_cidr]
+  }
+
+  egress {
+    description = "Allow endpoint response and service traffic"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = merge(var.tags, {
+    Name = "${var.name}-vpc-endpoints"
+  })
+}
+
+# ECR API endpoint: lets private workloads call the ECR API.
+resource "aws_vpc_endpoint" "ecr_api" {
+  vpc_id              = aws_vpc.this.id
+  service_name        = "com.amazonaws.${data.aws_region.current.name}.ecr.api"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = aws_subnet.private[*].id
+  security_group_ids  = [aws_security_group.vpc_endpoints.id]
+  private_dns_enabled = true
+
+  tags = merge(var.tags, {
+    Name = "${var.name}-ecr-api-endpoint"
+  })
+}
+
+# ECR Docker endpoint: lets private workloads authenticate and pull images.
+resource "aws_vpc_endpoint" "ecr_dkr" {
+  vpc_id              = aws_vpc.this.id
+  service_name        = "com.amazonaws.${data.aws_region.current.name}.ecr.dkr"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = aws_subnet.private[*].id
+  security_group_ids  = [aws_security_group.vpc_endpoints.id]
+  private_dns_enabled = true
+
+  tags = merge(var.tags, {
+    Name = "${var.name}-ecr-dkr-endpoint"
+  })
+}
+
+# S3 gateway endpoint: provides private access to S3, including ECR image layers.
+# Gateway endpoints have no additional hourly endpoint charge.
+resource "aws_vpc_endpoint" "s3" {
+  vpc_id            = aws_vpc.this.id
+  service_name      = "com.amazonaws.${data.aws_region.current.name}.s3"
+  vpc_endpoint_type = "Gateway"
+
+  # Add the endpoint route to each private subnet's route table.
+  route_table_ids = aws_route_table.private[*].id
+
+  tags = merge(var.tags, {
+    Name = "${var.name}-s3-endpoint"
+  })
+}
+
+# STS endpoint: supports private AWS Security Token Service requests.
+resource "aws_vpc_endpoint" "sts" {
+  vpc_id              = aws_vpc.this.id
+  service_name        = "com.amazonaws.${data.aws_region.current.name}.sts"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = aws_subnet.private[*].id
+  security_group_ids  = [aws_security_group.vpc_endpoints.id]
+  private_dns_enabled = true
+
+  tags = merge(var.tags, {
+    Name = "${var.name}-sts-endpoint"
+  })
+}
+
+# Secrets Manager endpoint: provides private access to stored credentials.
+resource "aws_vpc_endpoint" "secrets_manager" {
+  vpc_id              = aws_vpc.this.id
+  service_name        = "com.amazonaws.${data.aws_region.current.name}.secretsmanager"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = aws_subnet.private[*].id
+  security_group_ids  = [aws_security_group.vpc_endpoints.id]
+  private_dns_enabled = true
+
+  tags = merge(var.tags, {
+    Name = "${var.name}-secretsmanager-endpoint"
+  })
+}
+
+# CloudWatch Logs endpoint: allows private delivery to the Logs API.
+resource "aws_vpc_endpoint" "logs" {
+  vpc_id              = aws_vpc.this.id
+  service_name        = "com.amazonaws.${data.aws_region.current.name}.logs"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = aws_subnet.private[*].id
+  security_group_ids  = [aws_security_group.vpc_endpoints.id]
+  private_dns_enabled = true
+
+  tags = merge(var.tags, {
+    Name = "${var.name}-logs-endpoint"
+  })
+}

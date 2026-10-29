@@ -66,6 +66,15 @@ resource "aws_eks_cluster" "this" {
   role_arn = aws_iam_role.cluster.arn
   version  = var.kubernetes_version
 
+  # Enable EKS API, audit, authentication, and control-plane logs.
+  enabled_cluster_log_types = [
+    "api",
+    "audit",
+    "authenticator",
+    "controllerManager",
+    "scheduler"
+  ]
+
   vpc_config {
     # Place the cluster network interfaces in private subnets.
     subnet_ids              = var.private_subnet_ids
@@ -114,3 +123,4 @@ resource "aws_eks_node_group" "this" {
 
   tags = var.tags
 }
+

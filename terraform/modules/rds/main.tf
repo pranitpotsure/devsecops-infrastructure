@@ -41,16 +41,6 @@ resource "aws_security_group" "database" {
   })
 }
 
-# Create a Secrets Manager container for the database credentials.
-# The actual password will be generated and managed separately.
-resource "aws_secretsmanager_secret" "credentials" {
-  name                    = "${var.identifier}/database-credentials"
-  description             = "Credentials for the Bagisto RDS database"
-  recovery_window_in_days = 7
-
-  tags = var.tags
-}
-
 # Create the private MySQL database.
 resource "aws_db_instance" "this" {
   identifier = var.identifier
@@ -87,3 +77,4 @@ resource "aws_db_instance" "this" {
     Name = var.identifier
   })
 }
+
